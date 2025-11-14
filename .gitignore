@@ -36,3 +36,5 @@ coverage
 __screenshots__/
 
 target
+pkg
+dist
