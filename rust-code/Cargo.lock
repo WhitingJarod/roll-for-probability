@@ -568,6 +568,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "plotters-canvas"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9126f053e70c9a2f2dd6998912a3536071e909fd37bde74b671402bfa441fc00"
+dependencies = [
+ "js-sys",
+ "plotters-backend",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "plotters-svg"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -626,7 +638,9 @@ dependencies = [
  "lol_alloc",
  "num-rational",
  "plotters",
+ "plotters-canvas",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
