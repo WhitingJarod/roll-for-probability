@@ -2,10 +2,14 @@ use std::fmt::Display;
 
 use hashbrown::HashMap;
 use num_rational::Rational32;
+use plotters::prelude::*;
+use plotters_canvas::CanvasBackend;
 use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
 use lol_alloc::{FreeListAllocator, LockedAllocator};
+#[cfg(target_arch = "wasm32")]
+use web_sys::HtmlCanvasElement;
 
 #[cfg(target_arch = "wasm32")]
 #[global_allocator]
@@ -230,6 +234,84 @@ impl PMF {
             }
         }
         out
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn _render_web(
+        &self,
+        label: String,
+        canvas: HtmlCanvasElement,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let backend = CanvasBackend::with_canvas_object(canvas).unwrap();
+
+        let root = backend.into_drawing_area();
+        root.fill(&WHITE)?;
+
+        let mut data = Vec::new();
+        for (val, &prob) in &self.pmf {
+            data.push((val, *prob.numer() as f64 / *prob.denom() as f64));
+        }
+        data.sort_by(|i, j| i.0.partial_cmp(j.0).unwrap());
+        let min_x = data.first().unwrap().0;
+        let max_x = data.last().unwrap().0;
+        let max_y = data.iter().map(|&(_, it)| it).fold(0.0, f64::max) * 100.0;
+
+        let mut chart = ChartBuilder::on(&root)
+            .margin(10)
+            .x_label_area_size(60)
+            .y_label_area_size(80)
+            .build_cartesian_2d((*min_x as f64)..(*max_x as f64), 0.0..max_y)?;
+
+        chart
+            .configure_mesh()
+            .disable_x_mesh()
+            .bold_line_style(WHITE.mix(0.3))
+            .y_desc("probability %")
+            .x_desc(label)
+            .axis_desc_style(("sans-serif", 30))
+            .label_style(("sans-serif", 20))
+            .draw()?;
+
+        // chart.draw_series(
+        //     Histogram::vertical(&chart)
+        //         .style(RED.mix(0.5).filled())
+        //         .data(data.iter().map(|&(&x, &y)| (x as f64, y * 100.0))),
+        // )?;
+
+        let pt = ((*min_x as f64).abs() + (*max_x as f64).abs()) / (1920 - 80) as f64;
+
+        let width = 0.875;
+
+        chart.draw_series(data.iter().map(|&(&x, y)| {
+            let x = x as f64;
+            let y = y * 100.0;
+            Rectangle::new(
+                [(x - width / 2.0, 0.0), (x + width / 2.0, y)],
+                RED.mix(0.5).filled(),
+            )
+        }))?;
+
+        let expected = self.expected();
+        let expected = *expected.numer() as f64 / *expected.denom() as f64;
+
+        chart.draw_series(std::iter::once(PathElement::new(
+            vec![(expected, 0.0), (expected, max_y)],
+            BLUE.stroke_width(2),
+        )))?;
+
+        chart.draw_series(std::iter::once(Text::new(
+            format!("expected value: {:.2}", expected),
+            (expected + 5.0 * pt, max_y),
+            ("sans-serif", 30).into_font().color(&BLUE),
+        )))?;
+
+        Ok(())
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn render_web(&self, label: String, canvas: HtmlCanvasElement) -> Result<(), JsValue> {
+        self._render_web(label, canvas).map_err(|e| e.to_string())?;
+        Ok(())
     }
 }
 
